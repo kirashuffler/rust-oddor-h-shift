@@ -1,0 +1,18 @@
+[package]
+name = "oddor_truckshift"
+description = "Userspace driver which makes Labtec ODDOR-TRUCKSHIFT available in libinput."
+version = "1.0.0"
+edition = "2021"
+authors = ["Dusko Simidzija <dusko.simidzija@gmail.com>"]
+readme = "README.md"
+homepage = "@TODO"
+repository = "@TODO"
+license = "AGPL-3.0-or-later"
+
+[dependencies]
+crossbeam-channel = "0.5"  # for cross-thread messaging
+signal-hook = "0.3.17"     # handling OS signals
+rusb = "0.9"               # USB HID
+evdev = "0.12.2"           # libevdev
+input = "0.9.1"            # libinput
+libc = "0.2"               # libc, dependency of libinput Interface for some reason
