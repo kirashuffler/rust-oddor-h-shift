@@ -1,13 +1,13 @@
 use std::time::Duration;
 
-use rusb::{Context, Device, UsbContext, DeviceDescriptor, DeviceHandle, Direction};
+use rusb::{Context, Device, DeviceDescriptor, DeviceHandle, Direction, UsbContext};
 
-use crate::constants::{VENDOR_ID, PRODUCT_ID};
+use crate::constants::{MASK_BTN_EXTRA, MASK_BTN_RANGE, MASK_BTN_SPLITTER, PRODUCT_ID, VENDOR_ID};
 use crate::errors::AppError;
-
 
 #[derive(Debug)]
 pub struct UsbShifter {
+    #[allow(dead_code)]
     context: Context,
     pub device: Device<Context>,
     pub descriptor: DeviceDescriptor,
@@ -19,16 +19,14 @@ pub struct UsbShifterHandle {
     pub endpoint: Endpoint,
 }
 
-
 #[derive(Clone, Debug)]
 pub struct Endpoint {
     pub address: u8,
     pub config: u8,
     pub interface: u8,
-    pub polling_interval: Duration,
     pub setting: u8,
+    pub polling_interval: Duration,
 }
-
 
 #[derive(Clone, Debug)]
 pub struct UsbShifterState {
@@ -43,7 +41,6 @@ impl PartialEq for UsbShifterState {
     }
 }
 impl Eq for UsbShifterState {}
-
 
 impl UsbShifter {
     pub fn new() -> Result<UsbShifter, AppError> {
@@ -63,7 +60,9 @@ impl UsbShifter {
                 Err(_) => continue,
             };
 
-            if device_descriptor.vendor_id() != VENDOR_ID || device_descriptor.product_id() != PRODUCT_ID {
+            if device_descriptor.vendor_id() != VENDOR_ID
+                || device_descriptor.product_id() != PRODUCT_ID
+            {
                 continue;
             };
 
@@ -78,7 +77,7 @@ impl UsbShifter {
                 context: libusb_context,
                 device,
                 descriptor: device_descriptor,
-            })
+            });
         }
 
         Err(AppError::from("No matching USB devices found."))
@@ -86,10 +85,8 @@ impl UsbShifter {
 
     pub fn open(&self, endpoint: &Endpoint) -> Result<UsbShifterHandle, AppError> {
         match self.device.open() {
-            Ok(handle) => Ok(
-                UsbShifterHandle::new(handle, endpoint.clone())?
-            ),
-            Err(e) => Err(AppError::from(format!("Could not open USB device: {e}")))
+            Ok(handle) => Ok(UsbShifterHandle::new(handle, endpoint.clone())?),
+            Err(e) => Err(AppError::from(format!("Could not open USB device: {e}"))),
         }
     }
 
@@ -109,8 +106,10 @@ impl UsbShifter {
                                 address: endpoint_desc.address(),
                                 config: config_desc.number(),
                                 interface: interface_desc.interface_number(),
-                                polling_interval: Duration::from_millis(u64::from(endpoint_desc.interval())),
                                 setting: interface_desc.setting_number(),
+                                polling_interval: Duration::from_millis(u64::from(
+                                    endpoint_desc.interval(),
+                                )),
                             });
                         }
                     }
@@ -118,27 +117,39 @@ impl UsbShifter {
             }
         }
 
-        Err(AppError::from("Could not find a readable endpoint on the USB device"))
+        Err(AppError::from(
+            "Could not find a readable endpoint on the USB device",
+        ))
     }
 
-    pub fn has_hotplug(&self) -> bool {
+    pub fn has_hotplug() -> bool {
         rusb::has_hotplug()
     }
 }
 
-
 impl UsbShifterHandle {
-    pub fn new(raw: DeviceHandle<Context>, endpoint: Endpoint) -> Result<UsbShifterHandle, AppError> {
+    pub fn new(
+        raw: DeviceHandle<Context>,
+        endpoint: Endpoint,
+    ) -> Result<UsbShifterHandle, AppError> {
         let handle = UsbShifterHandle { raw, endpoint };
         handle.configure()?;
         Ok(handle)
     }
 
     fn configure(&self) -> Result<(), AppError> {
-        self.raw.reset().map_err(|e| AppError::from(format!("Error resetting device: {e}")))?;
-        self.raw.set_active_configuration(self.endpoint.config).map_err(|e| AppError::from(format!("Error setting configuration: {e}")))?;
-        self.raw.claim_interface(self.endpoint.interface).map_err(|e| AppError::from(format!("Error claiming interface: {e}")))?;
-        self.raw.set_alternate_setting(self.endpoint.interface, self.endpoint.setting).map_err(|e| AppError::from(format!("Error setting alternate setting: {e}")))?;
+        self.raw
+            .reset()
+            .map_err(|e| AppError::from(format!("Error resetting device: {e}")))?;
+        self.raw
+            .set_active_configuration(self.endpoint.config)
+            .map_err(|e| AppError::from(format!("Error setting configuration: {e}")))?;
+        self.raw
+            .claim_interface(self.endpoint.interface)
+            .map_err(|e| AppError::from(format!("Error claiming interface: {e}")))?;
+        self.raw
+            .set_alternate_setting(self.endpoint.interface, self.endpoint.setting)
+            .map_err(|e| AppError::from(format!("Error setting alternate setting: {e}")))?;
         Ok(())
     }
 
@@ -146,18 +157,26 @@ impl UsbShifterHandle {
         let mut buffer: [u8; 64] = [0; 64];
         let timeout = Duration::from_millis(500);
 
-        let raw_data: &[u8] = match self.raw.read_interrupt(self.endpoint.address, &mut buffer, timeout) {
-            Ok(len) => &buffer[..len],
-            Err(e) => return Err(AppError::from(format!("Warning: could not read from device endpoint: {e}"))),
-        };
+        let raw_data: &[u8] =
+            match self
+                .raw
+                .read_interrupt(self.endpoint.address, &mut buffer, timeout)
+            {
+                Ok(len) => &buffer[..len],
+                Err(e) => {
+                    return Err(AppError::from(format!(
+                        "Warning: could not read from device endpoint: {e}"
+                    )))
+                }
+            };
 
         // looks like this reads 5 bytes, but only the first one is actually used
         let data = raw_data[0];
 
         Ok(UsbShifterState {
-            range: (data & 0x1) != 0,
-            splitter: (data & 0x2) != 0,
-            extra: (data & 0x4) != 0,
+            range: (data & MASK_BTN_RANGE) != 0,
+            splitter: (data & MASK_BTN_SPLITTER) != 0,
+            extra: (data & MASK_BTN_EXTRA) != 0,
         })
     }
 }

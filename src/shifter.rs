@@ -1,6 +1,6 @@
 use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
 use evdev::{AttributeSet, BusType, InputEvent, InputId, Key, PropType};
-use input::{Libinput, LibinputInterface};
+use input::{Device, Libinput, LibinputInterface};
 use libc::{O_RDONLY, O_RDWR, O_WRONLY};
 use std::fs::{File, OpenOptions};
 use std::os::fd::OwnedFd;
@@ -14,8 +14,10 @@ use crate::errors::AppError;
 
 pub struct EventDevice {
     pub raw: VirtualDevice,
+    // we just need these to exist so the event device is visible in libinput
     #[allow(dead_code)]
-    libinput_device: Libinput, // we just need this to exist so the event device is visible in libinput
+    libinput_interface: Libinput,
+    libinput_device: Option<Device>,
 }
 
 struct UdevInterface;
@@ -55,12 +57,13 @@ impl EventDevice {
         // otherwise adding the device to libinput fails silently
         thread::sleep(Duration::from_millis(100));
 
-        let mut libinput_device = Libinput::new_from_path(UdevInterface);
-        libinput_device.path_add_device(&path.to_str().unwrap());
+        let mut libinput_interface = Libinput::new_from_path(UdevInterface);
+        let libinput_device = libinput_interface.path_add_device(&path.to_str().unwrap());
         println!("Virtual device available at {:?}", path);
 
         Ok(EventDevice {
             raw: device,
+            libinput_interface,
             libinput_device,
         })
     }
@@ -88,5 +91,14 @@ impl EventDevice {
 
     pub fn emit(&mut self, messages: &[InputEvent]) -> Result<(), std::io::Error> {
         self.raw.emit(messages)
+    }
+}
+
+impl Drop for EventDevice {
+    fn drop(&mut self) {
+        if let Some(dev) = self.libinput_device.take() {
+            self.libinput_interface.path_remove_device(dev);
+            self.libinput_device = None;
+        }
     }
 }
