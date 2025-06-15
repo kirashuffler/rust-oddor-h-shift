@@ -74,12 +74,17 @@ impl EventDevice {
         let mut props = AttributeSet::<PropType>::new();
 
         props.insert(PropType::BUTTONPAD);
-        keys.insert(Key::BTN_MODE);
-        keys.insert(Key::BTN_GEAR_UP);
-        keys.insert(Key::BTN_EXTRA);
+        keys.insert(Key::BTN_TRIGGER_HAPPY1);
+        keys.insert(Key::BTN_TRIGGER_HAPPY2);
+        keys.insert(Key::BTN_TRIGGER_HAPPY3);
+        keys.insert(Key::BTN_TRIGGER_HAPPY4);
+        keys.insert(Key::BTN_TRIGGER_HAPPY5);
+        keys.insert(Key::BTN_TRIGGER_HAPPY6);
+        keys.insert(Key::BTN_TRIGGER_HAPPY7);
+        keys.insert(Key::BTN_TRIGGER_HAPPY8);
 
         let device = VirtualDeviceBuilder::new()?
-            .name("Labtec ODDOR-TRUCKSHIFT")
+            .name("ZSC ODDOR-H-SHIFT")
             .input_id(input_id)
             .with_properties(&props)?
             .with_keys(&keys)?

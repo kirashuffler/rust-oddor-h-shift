@@ -1,6 +1,6 @@
 [package]
-name = "oddor_truckshift"
-description = "Userspace driver which makes Labtec ODDOR-TRUCKSHIFT available in libinput."
+name = "oddor_h_shift"
+description = "Userspace driver which makes Labtec ODDOR-H-SHIFT available in libinput."
 version = "1.0.0"
 edition = "2021"
 authors = ["Dusko Simidzija <dusko.simidzija@gmail.com>"]

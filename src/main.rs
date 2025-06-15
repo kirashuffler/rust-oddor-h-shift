@@ -1,6 +1,6 @@
 use std::{process::exit, thread, time::Duration};
 
-use constants::{PRODUCT_ID, VENDOR_ID};
+use constants::{MAX_GEAR, PRODUCT_ID, VENDOR_ID};
 use crossbeam::{
     channel::{bounded, select, tick, Receiver, Sender},
     thread::{Scope, ScopedJoinHandle},
@@ -94,6 +94,7 @@ fn shifter_reader(receiver: Receiver<()>) -> Result<(), AppError> {
         select! {
             recv(polling_tick) -> _ => {
                 let read_result = usb_handle.read();
+                let mut events = Vec::new();
                 if read_result.is_err() {
                     if UsbShifter::has_hotplug() {
                         // we politely wait for the message to shut down
@@ -106,16 +107,15 @@ fn shifter_reader(receiver: Receiver<()>) -> Result<(), AppError> {
                 let new_state = read_result.as_ref().unwrap();
 
                 if input_state != *new_state {
+                    // Release previos button
+                    events.push(InputEvent::new(EventType::KEY, Key::BTN_TRIGGER_HAPPY1.code() + input_state, 0));
                     input_state = new_state.clone();
-
-                    let events = [
-                        InputEvent::new(EventType::KEY, Key::BTN_MODE.code(), input_state.range.into()),
-                        InputEvent::new(EventType::KEY, Key::BTN_GEAR_UP.code(), input_state.splitter.into()),
-                        InputEvent::new(EventType::KEY, Key::BTN_EXTRA.code(), input_state.extra.into()),
-                    ];
+                    if input_state <= MAX_GEAR {
+                        events.push(InputEvent::new(EventType::KEY, Key::BTN_TRIGGER_HAPPY1.code() + input_state, 1));
+                    }
                     evdev_device.emit(&events).map_err(|e| AppError::from(format!("Could not emit a device event: {e}")))?;
                     // TODO: print states only if verbose argv provided
-                    println!("state = {:?}", input_state);
+                    // println!("state = {:?}", input_state);
                 };
             }
             recv(receiver) -> _ => {

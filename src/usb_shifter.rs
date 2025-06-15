@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use rusb::{Context, Device, DeviceDescriptor, DeviceHandle, Direction, UsbContext};
 
-use crate::constants::{MASK_BTN_EXTRA, MASK_BTN_RANGE, MASK_BTN_SPLITTER, PRODUCT_ID, VENDOR_ID};
+use crate::constants::{FAKE_GEAR, PRODUCT_ID, VENDOR_ID};
 use crate::errors::AppError;
 
 #[derive(Debug)]
@@ -153,7 +153,7 @@ impl UsbShifterHandle {
         Ok(())
     }
 
-    pub fn read(&self) -> Result<UsbShifterState, AppError> {
+    pub fn read(&self) -> Result<u16, AppError> {
         let mut buffer: [u8; 64] = [0; 64];
         let timeout = Duration::from_millis(500);
 
@@ -172,11 +172,12 @@ impl UsbShifterHandle {
 
         // looks like this reads 5 bytes, but only the first one is actually used
         let data = raw_data[0];
+        if data == 0 {
+            return Ok(FAKE_GEAR);
+        }
 
-        Ok(UsbShifterState {
-            range: (data & MASK_BTN_RANGE) != 0,
-            splitter: (data & MASK_BTN_SPLITTER) != 0,
-            extra: (data & MASK_BTN_EXTRA) != 0,
-        })
+        let gear_power: u16 = data.trailing_zeros() as u16;
+
+        return Ok(gear_power);
     }
 }

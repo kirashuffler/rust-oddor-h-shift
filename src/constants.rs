@@ -1,5 +1,4 @@
-pub const VENDOR_ID: u16 = 0x1020;
-pub const PRODUCT_ID: u16 = 0x8863;
-pub const MASK_BTN_RANGE: u8 = 0x1;
-pub const MASK_BTN_SPLITTER: u8 = 0x2;
-pub const MASK_BTN_EXTRA: u8 = 0x4;
+pub const VENDOR_ID: u16 = 0x4785;
+pub const PRODUCT_ID: u16 = 0x7353;
+pub const FAKE_GEAR: u16 = 10;
+pub const MAX_GEAR: u16 = 7;
